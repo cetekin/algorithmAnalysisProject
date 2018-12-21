@@ -74,6 +74,7 @@ int dequeue(QUEUE* q) {
 
         item = q->qu[q->front];
         q->front = (q->front+1)%SIZE;
+        q->cnt--;
         return item;
 
 

@@ -11,7 +11,8 @@ struct Node {
 
         int vertex_no;
         int edge_weight;
-        int min_distance_val;
+        int min_distance_val; //Holds the minimum distance from base node to initial node
+        int min_distance_parent; //Holds the minimum distance parent node index
         struct Node* parent_next; //To parent nodes
         struct Node* next; //To adjacent nodes
 
@@ -23,6 +24,10 @@ struct Node** read_file(int*,int*,int*,int*);
 struct Node* create_node(int,int);
 void add_node(struct Node*,struct Node*);
 void add_parent_node(struct Node*,struct Node*);
+int find_paths(struct Node**,int,int,int);
+int bfs_enhanced(struct Node**,int,int,int);
+void print_shortest_path(struct Node**,int,int,int);
+void print_possible_paths(struct Node**,struct Node*,int,int);
 
 
 
@@ -79,7 +84,7 @@ struct Node** read_file(int* base_node,int* dest_node,int* vertex_cnt,int* edge_
                 head_index = atoi(p);
 
                 if(adj_list[head_index] == NULL)
-                        adj_list[head_index] = create_node(0,0);
+                        adj_list[head_index] = create_node(head_index,0);
 
 
                 p=strtok(NULL," ");
@@ -109,6 +114,7 @@ struct Node* create_node(int vertex_no,int edge_weight) {
 
         tmp->vertex_no = vertex_no;
         tmp->edge_weight = edge_weight;
+        tmp->min_distance_val = 0;
 
         if (tmp == NULL) {
                 printf("Memory is not allocated!\n");
@@ -154,12 +160,12 @@ int find_paths(struct Node** adj_list,int vertex_cnt,int base_node,int dest_node
         int flag = 0;
 
         if (adj_list[base_node] == NULL) {
-                printf("There is not any node labeled as %d\n",base_node );
+                printf("There is not any node labeled as %d or there is no exit from that node!\n",base_node );
                 exit(-7);
         }
 
 
-        flag = bfs_enhanced(adj_list,base_node,dest_node);
+        flag = bfs_enhanced(adj_list,base_node,dest_node,vertex_cnt);
 
         if (!flag) {
                 printf("Given two nodes %d and %d are not connected directly or indirectly!\n",base_node,dest_node );
@@ -171,46 +177,96 @@ int find_paths(struct Node** adj_list,int vertex_cnt,int base_node,int dest_node
 }
 
 /*BFS on graph that is implemented with adjaceny list*/
-int bfs_enhanced(struct Node** adj_list,int base_node,int dest_node) {
+int bfs_enhanced(struct Node** adj_list,int base_node,int dest_node,int vertex_cnt) {
 
         QUEUE* q;
         int* visited;
         int node_index;
         struct Node* iterator;
         struct Node* parent;
+        struct Node* tmp;
+        int flag = 0;
+
 
         q = create_queue();
         visited = (int*)calloc(vertex_cnt,sizeof(int));
 
+        if (visited == NULL) {
+                printf("Memory is not allocated!\n");
+                exit(-8);
+        }
+
+        visited[base_node] = 1;
         enqueue(q,base_node);
+
 
         /*BFS traversal continues until queue is empty*/
         while (!is_empty(q)) {
 
+
                 node_index = dequeue(q);
-                visited[node_index] = 1;
+
+                if (node_index == dest_node) {
+                        flag = 1;
+                }
+
+
 
                 iterator = adj_list[node_index];
 
                 iterator = iterator->next;
 
 
+                /*Adjacent nodes loop*/
                 while (iterator != NULL) {
+
 
                         /*If initial adjacent node is not visited*/
                         if (!visited[iterator->vertex_no]) {
 
+                                visited[iterator->vertex_no] = 1;
+
                                 /*Storing initial adjacent node in the queue*/
                                 enqueue(q,iterator->vertex_no);
 
+                                /*If initial adjacent node has no head pointer in the adj_list*/
+                                if (adj_list[iterator->vertex_no] == NULL) {
+                                        adj_list[iterator->vertex_no]=create_node(iterator->vertex_no,0);
+                                }
+
                                 /*Setting up a new parent node list for the initial adjacent node and adding initial ancestor node (node_index) as parent*/
-                                create_node();
+                                parent = create_node(node_index,iterator->edge_weight);
+
+
+                                /*Initializing current adjacent node's root node's parent list*/
+                                adj_list[iterator->vertex_no]->parent_next = parent;
+                                tmp = adj_list[iterator->vertex_no];
+
+
+                                /*Initializing minimum distance and minimum parent node index*/
+                                tmp->min_distance_val = iterator->edge_weight + adj_list[node_index]->min_distance_val;
+                                tmp->min_distance_parent = node_index;
+
 
                         }
 
-
+                        /*If initial adjacent node is visited then there are more than one path to that node from different parent nodes*/
                         else {
 
+
+
+
+                                tmp = create_node(node_index,iterator->edge_weight);
+
+                                /*Adding node_index to initial adjacent node's parent nodes list*/
+                                add_parent_node(adj_list[iterator->vertex_no],tmp);
+
+                                /*If initial parent node's distance is shorter than initial adjacent node's minimum distance val then set minimum distance with parent node's distance + edge_weight*/
+                                if (iterator->edge_weight + adj_list[node_index]->min_distance_val < adj_list[iterator->vertex_no]->min_distance_val) {
+                                        adj_list[iterator->vertex_no]->min_distance_val = iterator->edge_weight + adj_list[node_index]->min_distance_val;
+                                        adj_list[iterator->vertex_no]->min_distance_parent = node_index;
+
+                                }
 
 
                         }
@@ -219,9 +275,76 @@ int bfs_enhanced(struct Node** adj_list,int base_node,int dest_node) {
                 }
 
 
+        }
+
+
+        return flag;
+
+}
+
+/*Prints shortest path recursively*/
+void print_shortest_path(struct Node** adj_list,int base_node,int dest_node,int min_node) {
+
+        if (min_node == base_node) {
+                printf("%d ",min_node );
+        }
+
+        else {
+
+                print_shortest_path(adj_list,base_node,dest_node,adj_list[min_node]->min_distance_parent);
+                printf("%d ",min_node );
+        }
+
+
+}
+
+/*Finds possible paths recursively. By using parent list created in bfs_enhanced() by doing Breadth First Search*/
+void print_possible_paths(struct Node** adj_list,struct Node* head,int dest_node,int base_node) {
+
+
+
+        struct Node* iterator = head;
+        //iterator = iterator->parent_next;
+
+        while (iterator) {
+
+
+                if (iterator->parent_next) {
+
+                        print_possible_paths(adj_list,adj_list[iterator->parent_next->vertex_no],dest_node,base_node);
+                }
+
+
+
+                //if(iterator->parent_next != NULL)
+                        printf("%d ",head->vertex_no );
+                if (head->vertex_no == dest_node)
+                        printf("\n");
+
+
+
+
+                iterator = iterator->parent_next;
 
 
         }
+
+
+
+
+        /*if (iterator->parent_next)
+                print_possible_paths(adj_list,adj_list[iterator->parent_next->vertex_no],dest_node,base_node);
+
+
+
+        printf("%d ",iterator->vertex_no );
+        if (iterator->vertex_no == dest_node)
+                printf("\n");*/
+
+
+
+
+
 
 }
 
@@ -231,12 +354,14 @@ int bfs_enhanced(struct Node** adj_list,int base_node,int dest_node) {
 
 int main(int argc, char *argv[]) {
 
+
         int base_node; //Path starting node index
         int dest_node; //Path finish node index
         int vertex_cnt; //Total vertex count
         int edge_cnt; //Total edge count
         int i;
         struct Node** adj_list; //The adjacency list of graph
+        struct Node* iterator; //Used for generating possible paths recursively after BFS is done.
 
         adj_list = read_file(&base_node,&dest_node,&vertex_cnt,&edge_cnt);
 
@@ -259,7 +384,20 @@ int main(int argc, char *argv[]) {
         }*/
 
 
-        find_paths(adj_list,vertex_cnt,base_node,dest_node);
+        i = find_paths(adj_list,vertex_cnt,base_node,dest_node);
+
+        if (i) {
+
+                printf("\nThe shortest path: ");
+                print_shortest_path(adj_list,base_node,dest_node,dest_node);
+                printf("\n");
+                iterator = adj_list[dest_node];
+                //print_possible_paths(adj_list,iterator,dest_node,base_node);
+
+
+        }
+
+
 
 
 
