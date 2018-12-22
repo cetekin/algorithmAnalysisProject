@@ -25,10 +25,14 @@ struct Node* create_node(int,int);
 void add_node(struct Node*,struct Node*);
 void add_parent_node(struct Node*,struct Node*);
 int find_paths(struct Node**,int,int,int);
-int bfs_enhanced(struct Node**,int,int,int);
+int bfs_possible_paths(struct Node**,int,int,int);
 void print_shortest_path(struct Node**,int,int,int,int);
 void print_possible_paths(struct Node**,struct Node*,int,int,int*,int);
 int get_distance(struct Node**,int,int);
+void find_directly_connected_nodes(struct Node**,int);
+void find_distant_nodes(struct Node**,int);
+void bfs_longest_path(struct Node**,int,int,int*);
+int find_max_node(int* distance_values,int vertex_cnt);
 
 
 
@@ -154,7 +158,7 @@ void add_parent_node(struct Node* head,struct Node* add) {
 }
 
 
-/*Finds all possible paths between given nodes and also finds the shortest path*/
+/*Finds all possible paths between given nodes and also stores the shortest path*/
 int find_paths(struct Node** adj_list,int vertex_cnt,int base_node,int dest_node) {
 
         int i;
@@ -166,7 +170,7 @@ int find_paths(struct Node** adj_list,int vertex_cnt,int base_node,int dest_node
         }
 
 
-        flag = bfs_enhanced(adj_list,base_node,dest_node,vertex_cnt);
+        flag = bfs_possible_paths(adj_list,base_node,dest_node,vertex_cnt);
 
         if (!flag) {
                 printf("Given two nodes %d and %d are not connected directly or indirectly!\n",base_node,dest_node );
@@ -178,7 +182,7 @@ int find_paths(struct Node** adj_list,int vertex_cnt,int base_node,int dest_node
 }
 
 /*BFS on graph that is implemented with adjaceny list*/
-int bfs_enhanced(struct Node** adj_list,int base_node,int dest_node,int vertex_cnt) {
+int bfs_possible_paths(struct Node** adj_list,int base_node,int dest_node,int vertex_cnt) {
 
         QUEUE* q;
         int* visited;
@@ -272,6 +276,7 @@ int bfs_enhanced(struct Node** adj_list,int base_node,int dest_node,int vertex_c
                 }
 
         }
+        free(visited);
 
         return flag;
 
@@ -325,7 +330,7 @@ void print_possible_paths(struct Node** adj_list,struct Node* head,int dest_node
 
 
         /*If the initial node is the base node then print path*/
-        if (head->vertex_no == 0) {
+        if (head->vertex_no == base_node) {
 
                 for (i = path_len-1; i >= 0; i--) {
 
@@ -387,10 +392,188 @@ int get_distance(struct Node** adj_list,int first_node,int second_node) {
 
 }
 
+/*Finds directly connected nodes and also prints the node that has the highest number of neighbors*/
+void find_directly_connected_nodes(struct Node** adj_list,int vertex_cnt) {
 
-void find_directly_connected_nodes() {
+
+        struct Node* iterator;
+        int flag;
+        int i,k;
+        int max_nb_cnt; //Holds maximum neighbor count
+        int nb_cnt; //Holds initial neighbor count
+        int max_nb_node; //Holds node that has the highest number of neighbors
+
+        printf("\n");
+
+        max_nb_cnt = 0;
+
+        for (i = 0; i < vertex_cnt; i++) {
+
+                flag = 0;
+                nb_cnt = 0;
+
+                printf("Directly connected nodes to %d node: ",i);
+
+                /*If there are at least one exiting from initial i node or at least one entering to initial i node*/
+                if (adj_list[i]) {
+
+                        iterator = adj_list[i]->next;
+
+                        /*Traversing through adjacent (entering) nodes*/
+                        while (iterator) {
+                                printf("%d ",iterator->vertex_no );
+                                iterator=iterator->next;
+                                flag = 1;
+                                nb_cnt++;
+                        }
+
+                }
 
 
+                k=0;
+
+                /*Checking every node's adjacent nodes list in the graph to find initial i node (entering nodes)*/
+                while (k<vertex_cnt && adj_list[k]) {
+                        iterator = adj_list[k]->next;
+                        while (iterator) {
+                                if (iterator->vertex_no == i){
+                                        printf("%d ",adj_list[k]->vertex_no );
+                                        flag = 1;
+                                        nb_cnt++;
+                                }
+
+
+                                iterator=iterator->next;
+                        }
+                        k++;
+                }
+
+                if(!flag)
+                        printf("None");
+
+                printf("\n");
+
+                if (nb_cnt > max_nb_cnt) {
+                        max_nb_cnt = nb_cnt;
+                        max_nb_node = i;
+
+                }
+
+        }
+
+        printf("\nNode that has the highest number of neighbors: %d\n",max_nb_node );
+        printf("Node %d has %d neighbors\n",max_nb_node,max_nb_cnt );
+}
+
+/*Finds the most distant from each other two nodes in the graph*/
+void find_distant_nodes(struct Node** adj_list,int vertex_cnt){
+
+        int i;
+        int global_max_val = 0;
+        int global_max_base;
+        int global_max_dest;
+        int init_max;
+        int* distance_values;
+
+
+
+        for (i = 0; i < vertex_cnt; i++) {
+
+                if ( (adj_list[i] != NULL) && (adj_list[i]->next != NULL)) {
+
+                        distance_values = (int*)calloc(vertex_cnt,sizeof(int));
+
+                        bfs_longest_path(adj_list,i,vertex_cnt,distance_values);
+                        init_max = find_max_node(distance_values,vertex_cnt);
+
+                        if (distance_values[init_max] > global_max_val) {
+                                global_max_val = distance_values[init_max];
+                                global_max_base = i;
+                                global_max_dest = init_max;
+                        }
+                        free(distance_values);
+
+                }
+
+        }
+
+        printf("\nThe most distant two nodes: %d %d \nDistance between %d and %d is: %d\n",global_max_base,global_max_dest,global_max_base,global_max_dest,global_max_val );
+
+}
+
+/*Standard BFS function which additionally stores the maximum distance parents.*/
+void bfs_longest_path(struct Node** adj_list,int base_node,int vertex_cnt,int* distance_values) {
+
+        struct Node* iterator;
+        int* visited;
+        QUEUE* q;
+        int node_index;
+        int i;
+
+        q = create_queue();
+
+        visited = (int*)calloc(vertex_cnt,sizeof(int));
+
+        if (visited == NULL) {
+                printf("Memory is not allocated!\n");
+                exit(-9);
+        }
+
+        enqueue(q,base_node);
+        visited[base_node] = 1;
+
+        while (!is_empty(q)) {
+
+                node_index = dequeue(q);
+                iterator = adj_list[node_index];
+
+                if (iterator)
+                        iterator = iterator->next;
+
+
+                /* Traversing adjacent nodes*/
+                while (iterator) {
+
+                        /*if not visited*/
+                        if (!visited[iterator->vertex_no]) {
+                                distance_values[iterator->vertex_no] = distance_values[node_index] + iterator->edge_weight;
+                                visited[iterator->vertex_no] = 1;
+                                enqueue(q,iterator->vertex_no);
+                        }
+
+                        /*If visited*/
+                        else {
+                                if (iterator->edge_weight + distance_values[node_index] > distance_values[iterator->vertex_no])
+                                        distance_values[iterator->vertex_no] = iterator->edge_weight + distance_values[node_index];
+
+                        }
+
+                        iterator=iterator->next;
+                }
+
+        }
+
+
+        free(q);
+        free(visited);
+
+}
+
+int find_max_node(int* distance_values,int vertex_cnt) {
+
+        int i;
+        int max;
+        int max_node;
+
+        max = distance_values[0];
+        for (i = 0; i < vertex_cnt; i++) {
+
+                if (distance_values[i] > max) {
+                        max = distance_values[i];
+                        max_node = i;
+                }
+        }
+        return max_node;
 
 }
 
@@ -443,11 +626,14 @@ int main(int argc, char *argv[]) {
                 printf("\n");
                 iterator = adj_list[dest_node];
                 path = (int*)malloc(sizeof(int)*vertex_cnt);
-                printf("Possible paths:\n");
+                printf("Possible paths between nodes %d and %d:\n",base_node,dest_node);
                 print_possible_paths(adj_list,iterator,dest_node,base_node,path,0);
 
 
         }
+
+        find_directly_connected_nodes(adj_list,vertex_cnt);
+        find_distant_nodes(adj_list,vertex_cnt);
 
 
 

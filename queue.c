@@ -27,7 +27,7 @@ QUEUE* create_queue() {
 int is_empty(QUEUE* q) {
 
         if (q->cnt == 0) {
-                printf("Queue is empty!\n");
+                //printf("Queue is empty!\n");
                 return 1;
         }
 

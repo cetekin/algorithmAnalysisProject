@@ -1,7 +1,7 @@
 #ifndef __queue_h__
 #define __queue_h__
 
-#define SIZE 50
+#define SIZE 100
 
 typedef struct Queue {
 
