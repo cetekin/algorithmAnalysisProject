@@ -465,7 +465,7 @@ void find_directly_connected_nodes(struct Node** adj_list,int vertex_cnt) {
         printf("Node %d has %d neighbors\n",max_nb_node,max_nb_cnt );
 }
 
-/*Finds the most distant from each other two nodes in the graph*/
+/*Finds the most distant nodes each other two nodes in the graph*/
 void find_distant_nodes(struct Node** adj_list,int vertex_cnt){
 
         int i;
@@ -559,6 +559,7 @@ void bfs_longest_path(struct Node** adj_list,int base_node,int vertex_cnt,int* d
 
 }
 
+/*Returns the node index which has the highest distance value*/
 int find_max_node(int* distance_values,int vertex_cnt) {
 
         int i;
