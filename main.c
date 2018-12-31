@@ -27,7 +27,7 @@ void add_parent_node(struct Node*,struct Node*);
 int find_paths(struct Node**,int,int,int);
 int bfs_possible_paths(struct Node**,int,int,int);
 void print_shortest_path(struct Node**,int,int,int,int);
-void print_possible_paths(struct Node**,struct Node*,int,int,int*,int);
+void print_possible_paths(struct Node**,struct Node*,int,int,int*,int,int*,int,int*);
 int get_distance(struct Node**,int,int);
 void find_directly_connected_nodes(struct Node**,int);
 void find_distant_nodes(struct Node**,int);
@@ -286,30 +286,31 @@ int bfs_possible_paths(struct Node** adj_list,int base_node,int dest_node,int ve
 void print_shortest_path(struct Node** adj_list,int base_node,int dest_node,int min_node,int prev_node) {
 
         if (min_node == base_node) {
-                printf("%d ",min_node );
-                printf(" (< %d units >)  ",get_distance(adj_list,min_node,prev_node) );   //get_distance(adj_list,min_node,prev_node)
+                printf("%d",min_node );
+                printf(" -> ");
         }
 
         else {
 
+                if (min_node == dest_node) {
+                        printf("   %d units     : ",adj_list[dest_node]->min_distance_val );
+                }
+
                 print_shortest_path(adj_list,base_node,dest_node,adj_list[min_node]->min_distance_parent,min_node);
-                printf("%d ",min_node );
+                printf("%d",min_node );
 
                 if (min_node != dest_node) {
-                        printf(" (< %d units >)  ",get_distance(adj_list,min_node,prev_node) );
+                        printf(" -> ");
                 }
 
 
-                if (min_node == dest_node) {
-                        printf("   *** Total cost: %d units ***\n",adj_list[dest_node]->min_distance_val );
-                }
         }
 
 
 }
 
 /*Finds possible paths recursively by using parent list created in bfs_enhanced()*/
-void print_possible_paths(struct Node** adj_list,struct Node* head,int dest_node,int base_node,int* path,int path_len) {
+void print_possible_paths(struct Node** adj_list,struct Node* head,int dest_node,int base_node,int* path,int path_len,int* cycle_detect,int vertex_cnt,int* path_no) {
 
 
 
@@ -320,28 +321,33 @@ void print_possible_paths(struct Node** adj_list,struct Node* head,int dest_node
 
 
 
-        if (head == NULL) {
+        if (head == NULL || cycle_detect[head->vertex_no]) {
                 return;
         }
 
 
         path[path_len] = head->vertex_no;
         path_len++;
+        cycle_detect[head->vertex_no] = 1;
 
 
         /*If the initial node is the base node then print path*/
         if (head->vertex_no == base_node) {
 
                 for (i = path_len-1; i >= 0; i--) {
-
-                        printf("%d ",path[i] );
                         if (i>=1)
                                 total_cost += get_distance(adj_list,path[i],path[i-1]);
-
-
                 }
 
-                printf("(%d units)\n",total_cost);
+                printf("   %d-)   %d units     : ",*path_no,total_cost);
+                *path_no = *path_no + 1;
+                printf("%d",path[path_len-1]);
+
+                for (i = path_len-2; i >= 0; i--)
+                        printf(" -> %d",path[i] );
+
+                printf("\n");
+
         }
 
 
@@ -350,11 +356,15 @@ void print_possible_paths(struct Node** adj_list,struct Node* head,int dest_node
                 /*Traversing all parent nodes (subtrees) in parent list. For each parent node recurs to find next path.*/
                 while (iterator) {
 
-                        print_possible_paths(adj_list,adj_list[iterator->vertex_no],dest_node,base_node,path,path_len);
+
+                        print_possible_paths(adj_list,adj_list[iterator->vertex_no],dest_node,base_node,path,path_len,cycle_detect,vertex_cnt,path_no);
+                        cycle_detect[iterator->vertex_no] = 0;
                         iterator = iterator->parent_next;
                 }
 
         }
+
+
 
 }
 
@@ -398,12 +408,12 @@ void find_directly_connected_nodes(struct Node** adj_list,int vertex_cnt) {
 
         struct Node* iterator;
         int flag;
-        int i,k;
+        int i,k,b,size;
         int max_nb_cnt; //Holds maximum neighbor count
         int nb_cnt; //Holds initial neighbor count
         int max_nb_node; //Holds node that has the highest number of neighbors
 
-        printf("\n");
+
 
         max_nb_cnt = 0;
 
@@ -412,7 +422,6 @@ void find_directly_connected_nodes(struct Node** adj_list,int vertex_cnt) {
                 flag = 0;
                 nb_cnt = 0;
 
-                printf("Directly connected nodes to %d node: ",i);
 
                 /*If there are at least one exiting from initial i node or at least one entering to initial i node*/
                 if (adj_list[i]) {
@@ -421,7 +430,13 @@ void find_directly_connected_nodes(struct Node** adj_list,int vertex_cnt) {
 
                         /*Traversing through adjacent (entering) nodes*/
                         while (iterator) {
-                                printf("%d ",iterator->vertex_no );
+                                size = get_distance(adj_list,i,iterator->vertex_no);
+                                printf("   %d units     : ",size);
+                                printf("%d ",i );
+                                for (b = 0; b < size; b++) {
+                                        printf("-");
+                                }
+                                printf("> %d\n",iterator->vertex_no);
                                 iterator=iterator->next;
                                 flag = 1;
                                 nb_cnt++;
@@ -430,28 +445,9 @@ void find_directly_connected_nodes(struct Node** adj_list,int vertex_cnt) {
                 }
 
 
-                k=0;
-
-                /*Checking every node's adjacent nodes list in the graph to find initial i node (entering nodes)*/
-                while (k<vertex_cnt && adj_list[k]) {
-                        iterator = adj_list[k]->next;
-                        while (iterator) {
-                                if (iterator->vertex_no == i){
-                                        printf("%d ",adj_list[k]->vertex_no );
-                                        flag = 1;
-                                        nb_cnt++;
-                                }
-
-
-                                iterator=iterator->next;
-                        }
-                        k++;
-                }
-
                 if(!flag)
                         printf("None");
 
-                printf("\n");
 
                 if (nb_cnt > max_nb_cnt) {
                         max_nb_cnt = nb_cnt;
@@ -461,8 +457,8 @@ void find_directly_connected_nodes(struct Node** adj_list,int vertex_cnt) {
 
         }
 
-        printf("\nNode that has the highest number of neighbors: %d\n",max_nb_node );
-        printf("Node %d has %d neighbors\n",max_nb_node,max_nb_cnt );
+        printf("\n6) Node that has the highest number of neighbors : %d\n",max_nb_node );
+        printf("   Neighbor count : %d",max_nb_cnt );
 }
 
 /*Finds the most distant nodes each other two nodes in the graph*/
@@ -497,7 +493,7 @@ void find_distant_nodes(struct Node** adj_list,int vertex_cnt){
 
         }
 
-        printf("\nThe most distant two nodes: %d %d \nDistance between %d and %d is: %d\n",global_max_base,global_max_dest,global_max_base,global_max_dest,global_max_val );
+        printf("\n\n7) TWO NODES FURTHEST AWAY FROM EACH OTHER\n   %d -> %d  (%d units)\n",global_max_base,global_max_dest,global_max_val );
 
 }
 
@@ -543,7 +539,7 @@ void bfs_longest_path(struct Node** adj_list,int base_node,int vertex_cnt,int* d
 
                         /*If visited*/
                         else {
-                                if (iterator->edge_weight + distance_values[node_index] > distance_values[iterator->vertex_no])
+                                if (iterator->edge_weight + distance_values[node_index] < distance_values[iterator->vertex_no])
                                         distance_values[iterator->vertex_no] = iterator->edge_weight + distance_values[node_index];
 
                         }
@@ -591,10 +587,13 @@ int main(int argc, char *argv[]) {
         struct Node** adj_list; //The adjacency list of graph
         struct Node* iterator; //Used for generating possible paths recursively after BFS is done
         int* path; //Used for holding paths while generating possible path after BFS is done
+        int* cycle_detect;
+        int path_no;
 
 
         adj_list = read_file(&base_node,&dest_node,&vertex_cnt,&edge_cnt);
-
+        printf("1) N = %d nodes and M = %d connections have been read from file.\n\n",vertex_cnt,edge_cnt );
+        printf("2) Starting : %d\n   Ending   : %d\n\n",base_node,dest_node );
 
 
         /*Utility code to print adj list*/
@@ -622,17 +621,20 @@ int main(int argc, char *argv[]) {
 
         if (i) {
 
-                printf("\nThe shortest path: ");
-                print_shortest_path(adj_list,base_node,dest_node,dest_node,dest_node);
-                printf("\n");
+
                 iterator = adj_list[dest_node];
                 path = (int*)malloc(sizeof(int)*vertex_cnt);
-                printf("Possible paths between nodes %d and %d:\n",base_node,dest_node);
-                print_possible_paths(adj_list,iterator,dest_node,base_node,path,0);
+                cycle_detect = (int*)calloc(vertex_cnt,sizeof(int));
+                printf("3) ALL PATHS \n");
+                path_no = 1;
+                print_possible_paths(adj_list,iterator,dest_node,base_node,path,0,cycle_detect,vertex_cnt,&path_no);
+                printf("\n4) THE SHORTEST PATH\n");
+                print_shortest_path(adj_list,base_node,dest_node,dest_node,dest_node);
 
 
         }
 
+        printf("\n\n5) DIRECTLY CONNECTED NODES\n");
         find_directly_connected_nodes(adj_list,vertex_cnt);
         find_distant_nodes(adj_list,vertex_cnt);
 
